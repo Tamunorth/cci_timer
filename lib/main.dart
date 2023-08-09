@@ -51,9 +51,6 @@ class _ExampleMainWindowState extends State<_ExampleMainWindow> {
   Widget build(BuildContext context) {
     return MaterialApp(
       home: Scaffold(
-        appBar: AppBar(
-          title: const Text('Plugin example app'),
-        ),
         body: Column(
           children: [
             TextButton(
@@ -71,9 +68,9 @@ class _ExampleMainWindowState extends State<_ExampleMainWindow> {
                   'business': 'business_test',
                 }));
                 window
-                  ..setFrame(const Offset(0, 0) & const Size(1920, 1080))
-                  ..setTitle('Another window')
-                  ..resizable(false)
+                  ..setFrame(const Offset(1920, 0) & const Size(1920, 1080))
+                  // ..setTitle('Another window')
+                  ..resizable(true)
                   ..show();
               },
               child: const Text('Create a Timer Window'),
@@ -157,7 +154,7 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
   late CustomTimerController _controller = CustomTimerController(
     vsync: this,
-    begin: Duration(minutes: 1),
+    begin: Duration(minutes: 0, seconds: 0),
     end: Duration(),
     initialState: CustomTimerState.counting,
     interval: CustomTimerInterval.milliseconds,
@@ -165,7 +162,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
 
   StopWatchTimer? stopwatch;
   bool isCountdown = true;
-  double fontsize = 200;
+  double fontsize = 400;
 
   @override
   void initState() {
@@ -196,9 +193,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Countdown to Stopwatch'),
-      ),
+      backgroundColor: Colors.black,
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -209,8 +204,13 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
                   builder: (state, time) {
                     // Build the widget you want!🎉
                     return Text(
-                      "${time.hours}:${time.minutes}:${time.seconds}",
-                      style: TextStyle(fontSize: fontsize, color: Colors.black),
+                      time.hours != '00'
+                          ? "${time.hours}:${time.minutes}:${time.seconds}"
+                          : "${time.minutes}:${time.seconds}",
+                      style: TextStyle(
+                          fontSize: time.hours != '00' ? 300 : fontsize,
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600),
                     );
                   }),
             if (!isCountdown)
@@ -223,7 +223,11 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
                       hours: false, milliSecond: false);
                   return Text(
                     '-${displayTime}',
-                    style: TextStyle(fontSize: fontsize, color: Colors.red),
+                    style: TextStyle(
+                      fontSize: fontsize,
+                      color: Colors.red,
+                      fontWeight: FontWeight.w600,
+                    ),
                   );
                 },
               ),
