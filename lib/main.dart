@@ -60,15 +60,29 @@ class _ExampleMainWindowState extends State<_ExampleMainWindow> {
                 if (windowIds.length >= 1) {
                   return;
                 }
-                final window =
+                final windowMain =
                     await DesktopMultiWindow.createWindow(jsonEncode({
                   'args1': 'Timer window',
                   'args2': 10,
                   'args3': true,
-                  'business': 'business_test',
+                  'window_type': 'main',
                 }));
-                window
+                final windowPreview =
+                    await DesktopMultiWindow.createWindow(jsonEncode({
+                  'args1': 'Preview window',
+                  'args2': 10,
+                  'args3': true,
+                  'window_type': 'preview',
+                }));
+
+                windowMain
                   ..setFrame(const Offset(1920, 0) & const Size(1920, 1080))
+                  // ..setTitle('Another window')
+                  ..resizable(true)
+                  ..show();
+
+                windowPreview
+                  ..setFrame(const Offset(0, 0) & const Size(720, 450))
                   // ..setTitle('Another window')
                   ..resizable(true)
                   ..show();
@@ -77,28 +91,36 @@ class _ExampleMainWindowState extends State<_ExampleMainWindow> {
             ),
             TextField(
                 controller: minutesCtrl,
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
                   hintText: 'Minutes',
                 ),
                 keyboardType: TextInputType.number,
                 inputFormatters: <TextInputFormatter>[
                   FilteringTextInputFormatter.allow(RegExp(r'[0-9]')),
                 ]),
-            SizedBox(
+            const SizedBox(
               height: 10,
             ),
             TextField(
                 controller: secondsCtrl,
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
                   hintText: 'Seconds',
                 ),
                 keyboardType: TextInputType.number,
                 inputFormatters: <TextInputFormatter>[
                   FilteringTextInputFormatter.allow(RegExp(r'[0-9]')),
                 ]),
-            TextButton(
-              child: const Text('Update Timer'),
-              onPressed: () async {
+            InkWell(
+              child: Container(
+                padding: const EdgeInsets.all(24),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(color: Colors.blue),
+                child: const Text(
+                  'Update Timer',
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.w600),
+                ),
+              ),
+              onTap: () async {
                 if (minutesCtrl.text.trim().isEmpty) {
                   minutesCtrl.text = '0';
                 }
@@ -118,9 +140,39 @@ class _ExampleMainWindowState extends State<_ExampleMainWindow> {
                 }
               },
             ),
-            Expanded(
-              child: EventWidget(controller: WindowController.fromWindowId(0)),
-            )
+            SizedBox(
+              height: 24,
+            ),
+            InkWell(
+              child: Container(
+                padding: const EdgeInsets.all(24),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(color: Colors.red),
+                child: const Text(
+                  'Reset Timer',
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.w600),
+                ),
+              ),
+              onTap: () async {
+                if (minutesCtrl.text.trim().isEmpty) {
+                  minutesCtrl.text = '0';
+                }
+
+                if (secondsCtrl.text.trim().isEmpty) {
+                  secondsCtrl.text = '0';
+                }
+
+                final subWindowIds =
+                    await DesktopMultiWindow.getAllSubWindowIds();
+                for (final windowId in subWindowIds) {
+                  DesktopMultiWindow.invokeMethod(
+                    windowId,
+                    'onReset',
+                    [minutesCtrl.text.trim(), secondsCtrl.text.trim()],
+                  );
+                }
+              },
+            ),
           ],
         ),
       ),
@@ -140,12 +192,17 @@ class _ExampleSubWindow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(home: MyHomePage());
+    return MaterialApp(
+        home: MyHomePage(
+      args: args,
+    ));
   }
 }
 
 class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key});
+  const MyHomePage({super.key, this.args});
+
+  final Map? args;
 
   @override
   _MyHomePageState createState() => _MyHomePageState();
@@ -154,8 +211,8 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
   late CustomTimerController _controller = CustomTimerController(
     vsync: this,
-    begin: Duration(minutes: 0, seconds: 0),
-    end: Duration(),
+    begin: const Duration(minutes: 0, seconds: 0),
+    end: const Duration(),
     initialState: CustomTimerState.counting,
     interval: CustomTimerInterval.milliseconds,
   );
@@ -168,12 +225,20 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
   void initState() {
     super.initState();
     DesktopMultiWindow.setMethodHandler(_handleMethodCallback);
-    _controller?.state.addListener(() {
-      if (_controller?.state.value == CustomTimerState.finished) {
+    _controller.state.addListener(() {
+      if (_controller.state.value == CustomTimerState.finished) {
         switchToStopwatch();
       }
     });
     _initTimerAndStopwatch();
+
+    if (widget.args != null) {
+      if (widget.args!['window_type'] == 'main') {
+        fontsize = 400;
+      } else {
+        fontsize = 150;
+      }
+    }
   }
 
   _initTimerAndStopwatch() {
@@ -192,6 +257,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
+    // print("------>>> ${widget.args}");
     return Scaffold(
       backgroundColor: Colors.black,
       body: Center(
@@ -202,7 +268,6 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
               CustomTimer(
                   controller: _controller!,
                   builder: (state, time) {
-                    // Build the widget you want!🎉
                     return Text(
                       time.hours != '00'
                           ? "${time.hours}:${time.minutes}:${time.seconds}"
@@ -253,15 +318,18 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
       stopwatch?.onResetTimer();
       setState(() {});
 
-      // _controller = CustomTimerController(
-      //   vsync: this,
-      //   begin: Duration(minutes: 2),
-      //   end: Duration(),
-      //   initialState: CustomTimerState.counting,
-      //   interval: CustomTimerInterval.milliseconds,
-      // );
-
       return "send";
+    }
+    if (call.method == 'onReset') {
+      _controller.begin = Duration(
+        minutes: int.parse(call.arguments[0]),
+        seconds: int.parse(call.arguments[1]),
+      );
+      _controller.reset();
+      isCountdown = true;
+      stopwatch?.onResetTimer();
+      setState(() {});
+      return "reset";
     }
     if (call.arguments.toString() == "ping") {
       return "pong";
